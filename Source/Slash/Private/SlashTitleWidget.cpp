@@ -17,6 +17,6 @@ void USlashTitleWidget::OnJoinButtonClicked() {
 	if (Subsystem) {
 		const FString RoomID = RoomIDTextBox->GetText().ToString();
 
-		Subsystem->CreateRoom(RoomID);
+		Subsystem->FindRoom(RoomID);
 	}
 }

@@ -6,6 +6,7 @@
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
+#include "Online/OnlineSessionNames.h"
 
 void USlashOnlineSubsystem::Initialize(
 	FSubsystemCollectionBase& Collection)
@@ -212,7 +213,7 @@ void USlashOnlineSubsystem::CreateRoom(const FString& RoomID) {
 	}
 }
 
-void USlashOnlineSubsystem::FindSession(const FString& RoomID) {
+void USlashOnlineSubsystem::FindRoom(const FString& RoomID) {
 	if (!IsValidRoomID(RoomID))
 	{
 		UE_LOG(LogTemp, Error, TEXT("[SlashOnline] Invalid RoomID: %s"), *RoomID);
@@ -256,6 +257,18 @@ void USlashOnlineSubsystem::FindSession(const FString& RoomID) {
 
 	SessionSearch->MaxSearchResults = 100;
 	SessionSearch->bIsLanQuery = false;
+
+	SessionSearch->QuerySettings.Set(
+		SEARCH_LOBBIES,
+		true,
+		EOnlineComparisonOp::Equals
+	);
+
+	SessionSearch->QuerySettings.Set(
+		FName(TEXT("ROOM_ID")),
+		RoomID,
+		EOnlineComparisonOp::Equals
+	);
 
 	FindSessionsCompleteHandle =
 		SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(
@@ -352,6 +365,8 @@ void USlashOnlineSubsystem::OnCreateSessionComplete(
 }
 
 void USlashOnlineSubsystem::OnFindSessionsComplete(bool bWasSuccessful) {
+	const FString RequestedRoomID = SearchingRoomID;
+
 	if (SessionInterface.IsValid())
 	{
 		SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(
@@ -381,14 +396,17 @@ void USlashOnlineSubsystem::OnFindSessionsComplete(bool bWasSuccessful) {
 		SessionSearch->SearchResults.Num()
 	);
 
+	bool bFoundMatchingRoom = false;
+
 	for (const FOnlineSessionSearchResult& SearchResult : SessionSearch->SearchResults)
 	{
 		FString FoundRoomID;
 
-		const bool bHasRoomID = SearchResult.Session.SessionSettings.Get(
-			FName(TEXT("ROOM_ID")),
-			FoundRoomID
-		);
+		const bool bHasRoomID =
+			SearchResult.Session.SessionSettings.Get(
+				FName(TEXT("ROOM_ID")),
+				FoundRoomID
+			);
 
 		if (!bHasRoomID)
 		{
@@ -402,8 +420,10 @@ void USlashOnlineSubsystem::OnFindSessionsComplete(bool bWasSuccessful) {
 			*FoundRoomID
 		);
 
-		if (FoundRoomID == SearchingRoomID)
+		if (FoundRoomID == RequestedRoomID)
 		{
+			bFoundMatchingRoom = true;
+
 			UE_LOG(
 				LogTemp,
 				Log,
@@ -411,10 +431,23 @@ void USlashOnlineSubsystem::OnFindSessionsComplete(bool bWasSuccessful) {
 				*FoundRoomID
 			);
 
+			// TODO: 次のステップでJoinRoom()を呼び出す
 			break;
 		}
 	}
 
 	SessionSearch.Reset();
 	SearchingRoomID.Empty();
+
+	if (!bFoundMatchingRoom)
+	{
+		UE_LOG(
+			LogTemp,
+			Log,
+			TEXT("[SlashOnline] Room not found. Creating new room: %s"),
+			*RequestedRoomID
+		);
+
+		CreateRoom(RequestedRoomID);
+	}
 }

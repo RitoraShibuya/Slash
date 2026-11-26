@@ -28,7 +28,7 @@ public:
 
 	void CreateRoom(const FString& RoomID);
 
-	void FindSession(const FString& RoomID);
+	void FindRoom(const FString& RoomID);
 private:
 	void OnLoginComplete(
 		int32 LocalUserNum,
