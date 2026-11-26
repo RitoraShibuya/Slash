@@ -1,1 +1,0 @@
--AUTH_TYPE=developer -AUTH_LOGIN=localhost:6547 -AUTH_PASSWORD=SlashDev
